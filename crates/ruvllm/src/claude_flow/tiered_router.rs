@@ -354,7 +354,7 @@ impl TieredRouter {
     /// This is a pure routing decision without executing the request.
     pub fn analyze_tier(&mut self, task: &str) -> (InferenceTier, f32) {
         let score = self.analyzer.analyze(task);
-        let tier = score.recommended_inference_tier();
+        let tier = self.tier_for_score(&score);
         (tier, score.overall)
     }
 
@@ -376,9 +376,9 @@ impl TieredRouter {
         self.request_count += 1;
         let start = Instant::now();
 
-        // Analyze complexity and pick tier
+        // Analyze complexity and pick tier (using config thresholds)
         let score = self.analyzer.analyze(task);
-        let initial_tier = score.recommended_inference_tier();
+        let initial_tier = self.tier_for_score(&score);
         let complexity = score.overall;
 
         // Try the selected tier, with fallback chain
@@ -499,7 +499,7 @@ impl TieredRouter {
         let start = Instant::now();
 
         let score = self.analyzer.analyze(task);
-        let initial_tier = score.recommended_inference_tier();
+        let initial_tier = self.tier_for_score(&score);
         let complexity = score.overall;
 
         let mut current_tier = initial_tier;
@@ -703,6 +703,19 @@ impl TieredRouter {
     // ========================================================================
     // Internal helpers
     // ========================================================================
+
+    /// Pick the inference tier for a complexity score using this router's config.
+    fn tier_for_score(
+        &self,
+        score: &super::model_router::ComplexityScore,
+    ) -> InferenceTier {
+        score.recommended_inference_tier_with(
+            self.config.local_threshold,
+            self.config.claude_threshold,
+            self.config.local_token_limit,
+            self.config.ollama_token_limit,
+        )
+    }
 
     /// Check if we should emit a distillation event for this tier
     fn should_distill(&self, actual_tier: InferenceTier) -> bool {
@@ -1133,6 +1146,61 @@ mod tests {
         assert_eq!(stats.total_requests, 0);
         assert_eq!(stats.fallback_count, 0);
         assert_eq!(stats.distillation_count, 0);
+    }
+
+    #[test]
+    fn test_config_thresholds_are_wired() {
+        // With default config (local < 0.35), "fix typo" → Local
+        let mut default_router = TieredRouter::with_defaults();
+        let (tier, score) = default_router.analyze_tier("fix typo");
+        assert_eq!(tier, InferenceTier::Local);
+
+        // Now set local_threshold to 0.0 — nothing qualifies as Local anymore
+        let strict_config = TieredRouterConfig {
+            local_threshold: 0.0,
+            ..Default::default()
+        };
+        let mut strict_router = TieredRouter::new(strict_config);
+        let (tier2, score2) = strict_router.analyze_tier("fix typo");
+        assert_ne!(tier2, InferenceTier::Local, "score {score2} should NOT be Local with threshold 0.0");
+
+        // Set claude_threshold very low — everything goes to Claude
+        let aggressive_config = TieredRouterConfig {
+            local_threshold: 0.0,
+            claude_threshold: 0.01,
+            ..Default::default()
+        };
+        let mut aggressive_router = TieredRouter::new(aggressive_config);
+        let (tier3, _) = aggressive_router.analyze_tier("fix typo");
+        assert_eq!(tier3, InferenceTier::CloudClaude);
+
+        // Set thresholds very wide — everything stays Local
+        let permissive_config = TieredRouterConfig {
+            local_threshold: 0.99,
+            local_token_limit: 100_000,
+            claude_threshold: 1.0,
+            ..Default::default()
+        };
+        let mut permissive_router = TieredRouter::new(permissive_config);
+        let (tier4, _) = permissive_router.analyze_tier("implement a REST API endpoint with database");
+        assert_eq!(tier4, InferenceTier::Local);
+    }
+
+    #[test]
+    fn test_config_token_limits_are_wired() {
+        // With default token limit (500), "fix typo" is Local
+        let mut default_router = TieredRouter::with_defaults();
+        let (tier, _) = default_router.analyze_tier("fix typo");
+        assert_eq!(tier, InferenceTier::Local);
+
+        // Set local_token_limit to 1 — even tiny tasks exceed it
+        let tight_config = TieredRouterConfig {
+            local_token_limit: 1,
+            ..Default::default()
+        };
+        let mut tight_router = TieredRouter::new(tight_config);
+        let (tier2, _) = tight_router.analyze_tier("fix typo");
+        assert_ne!(tier2, InferenceTier::Local, "token limit 1 should prevent Local");
     }
 
     #[test]

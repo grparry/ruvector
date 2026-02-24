@@ -260,18 +260,44 @@ impl ComplexityScore {
             || self.factors.reasoning_depth > 0.8
     }
 
-    /// Get recommended inference tier based on complexity score.
+    /// Get recommended inference tier using default thresholds.
     ///
-    /// Uses the same thresholds as Claude model routing but maps to
-    /// backend tiers instead:
-    /// - Simple (< 0.35, < 500 tokens) → Local candle inference
-    /// - Moderate (0.35-0.70, < 2000 tokens) → Ollama
-    /// - Complex (> 0.70 or > 2000 tokens) → Claude API
+    /// Uses hardcoded thresholds (0.35 / 0.70 / 500 / 2000 tokens).
+    /// Prefer [`recommended_inference_tier_with`] when you have a
+    /// `TieredRouterConfig` so the user's configured thresholds are respected.
     #[inline]
     pub fn recommended_inference_tier(&self) -> InferenceTier {
-        if self.is_simple() {
+        self.recommended_inference_tier_with(0.35, 0.70, 500, 2000)
+    }
+
+    /// Get recommended inference tier with caller-supplied thresholds.
+    ///
+    /// This is the config-aware version used by `TieredRouter` so that
+    /// `TieredRouterConfig.local_threshold` / `claude_threshold` /
+    /// `local_token_limit` / `ollama_token_limit` actually take effect.
+    ///
+    /// Routing logic:
+    /// - `overall < local_threshold` AND `tokens < local_token_limit` → Local
+    /// - `overall > claude_threshold` OR `tokens > ollama_token_limit`
+    ///   OR security > 0.8 OR reasoning > 0.8 → CloudClaude
+    /// - Everything else → Ollama
+    #[inline]
+    pub fn recommended_inference_tier_with(
+        &self,
+        local_threshold: f32,
+        claude_threshold: f32,
+        local_token_limit: usize,
+        ollama_token_limit: usize,
+    ) -> InferenceTier {
+        let tokens = self.factors.token_estimate;
+
+        if self.overall < local_threshold && tokens < local_token_limit {
             InferenceTier::Local
-        } else if self.requires_opus() {
+        } else if self.overall > claude_threshold
+            || tokens > ollama_token_limit
+            || self.factors.security_sensitivity > 0.8
+            || self.factors.reasoning_depth > 0.8
+        {
             InferenceTier::CloudClaude
         } else {
             InferenceTier::Ollama
