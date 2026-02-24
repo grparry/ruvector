@@ -40,6 +40,8 @@
 //! println!("Loaded {} signals from {} providers", signals.len(), loader.provider_count());
 //! ```
 
+pub mod acornflow_handler;
+
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
