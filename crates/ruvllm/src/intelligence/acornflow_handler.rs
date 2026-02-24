@@ -61,10 +61,7 @@ impl SignalExtensionHandler for AcornflowExtensionHandler {
                 .iter()
                 .filter_map(|step| step.get("nodeName").and_then(|n| n.as_str()))
                 .collect();
-            features.insert(
-                "chain_steps".into(),
-                serde_json::json!(step_names),
-            );
+            features.insert("chain_steps".into(), serde_json::json!(step_names));
 
             // Total duration across all steps
             let total_ms: f64 = chain
@@ -207,7 +204,9 @@ mod tests {
         let signal = make_acornflow_signal();
         let ext_data = &signal.extensions.as_ref().unwrap()["acornflow"];
 
-        let context = handler.extract_embedding_context(ext_data, &signal).unwrap();
+        let context = handler
+            .extract_embedding_context(ext_data, &signal)
+            .unwrap();
 
         assert_eq!(context.len(), 2);
         assert_eq!(context[0], "workflow:deploy-service");
@@ -238,10 +237,15 @@ mod tests {
 
         // Trajectory
         assert_eq!(results.trajectory_features["chain_length"], 3);
-        assert_eq!(results.trajectory_features["workflow_name"], "deploy-service");
+        assert_eq!(
+            results.trajectory_features["workflow_name"],
+            "deploy-service"
+        );
 
         // Embedding
-        assert!(results.embedding_context.contains(&"workflow:deploy-service".to_string()));
+        assert!(results
+            .embedding_context
+            .contains(&"workflow:deploy-service".to_string()));
 
         // Router
         assert!((results.router_features["chain_length"] - 3.0).abs() < f32::EPSILON);

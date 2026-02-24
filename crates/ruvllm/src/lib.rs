@@ -491,8 +491,7 @@ pub use ruvector_integration::{
 pub use intelligence::{
     acornflow_handler::AcornflowExtensionHandler, FileSignalProvider, HumanVerdict,
     IntelligenceLoader, IntelligenceProvider, Outcome, ProviderError, ProviderQualityWeights,
-    ProviderResult, QualityFactors, QualitySignal, SignalExtensionHandler,
-    SignalExtensionResults,
+    ProviderResult, QualityFactors, QualitySignal, SignalExtensionHandler, SignalExtensionResults,
 };
 
 // Quality scoring exports

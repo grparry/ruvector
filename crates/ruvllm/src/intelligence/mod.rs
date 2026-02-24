@@ -940,9 +940,7 @@ mod tests {
 
         loader.register_extension_handler(Box::new(MockExtensionHandler));
         assert_eq!(loader.extension_handler_count(), 1);
-        assert!(loader
-            .extension_handler_namespaces()
-            .contains(&"test-ns"));
+        assert!(loader.extension_handler_namespaces().contains(&"test-ns"));
     }
 
     #[test]
@@ -977,10 +975,7 @@ mod tests {
         loader.register_extension_handler(Box::new(MockExtensionHandler));
 
         let mut ext = HashMap::new();
-        ext.insert(
-            "other-ns".to_string(),
-            serde_json::json!({"step_count": 5}),
-        );
+        ext.insert("other-ns".to_string(), serde_json::json!({"step_count": 5}));
 
         let signal = QualitySignal {
             extensions: Some(ext),
