@@ -38,6 +38,9 @@ fn create_test_sona_config() -> SonaConfig {
         background_interval_secs: 3600,
         deep_interval_secs: 604800,
         quality_threshold: 0.5,
+        instant_flush_threshold: 1,
+        min_background_trajectories: 1,
+        min_cluster_size: 1,
     }
 }
 

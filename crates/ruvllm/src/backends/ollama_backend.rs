@@ -166,6 +166,24 @@ pub struct OllamaChatResponse {
     pub eval_duration: u64,
 }
 
+/// Request body for Ollama /api/embed endpoint
+#[derive(Debug, Clone, Serialize)]
+pub struct OllamaEmbedRequest {
+    /// Model name
+    pub model: String,
+    /// Input text to embed
+    pub input: String,
+}
+
+/// Response from Ollama /api/embed endpoint
+#[derive(Debug, Clone, Deserialize)]
+pub struct OllamaEmbedResponse {
+    /// Model used
+    pub model: String,
+    /// Embedding vectors (one per input)
+    pub embeddings: Vec<Vec<f32>>,
+}
+
 /// A single streaming chunk from Ollama (newline-delimited JSON)
 #[derive(Debug, Clone, Deserialize)]
 pub struct OllamaStreamChunk {
@@ -363,6 +381,50 @@ impl OllamaBackend {
         Ok(rx)
     }
 
+    /// Generate embeddings using /api/embed
+    ///
+    /// Returns a single embedding vector for the input text using the
+    /// configured default model.
+    pub async fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        self.embed_with_model(&self.config.model, text).await
+    }
+
+    /// Generate embeddings using /api/embed with a specific model
+    pub async fn embed_with_model(&self, model: &str, text: &str) -> Result<Vec<f32>> {
+        let url = format!("{}/api/embed", self.config.base_url);
+        let request = OllamaEmbedRequest {
+            model: model.to_string(),
+            input: text.to_string(),
+        };
+
+        let resp = self
+            .client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(RuvLLMError::Http(format!(
+                "Ollama embed failed ({}): {}",
+                status, body
+            )));
+        }
+
+        let embed_resp: OllamaEmbedResponse = resp
+            .json()
+            .await
+            .map_err(|e| RuvLLMError::Serialization(format!("Failed to parse embed response: {}", e)))?;
+
+        embed_resp
+            .embeddings
+            .into_iter()
+            .next()
+            .ok_or_else(|| RuvLLMError::Backend("Ollama returned empty embeddings".to_string()))
+    }
+
     /// Chat using /api/chat (non-streaming)
     pub async fn chat(
         &self,
@@ -534,6 +596,26 @@ mod tests {
         let final_chunk: OllamaStreamChunk = serde_json::from_str(final_json).unwrap();
         assert!(final_chunk.done);
         assert_eq!(final_chunk.eval_count, 42);
+    }
+
+    #[test]
+    fn test_embed_request_serialization() {
+        let request = OllamaEmbedRequest {
+            model: "llama3.1:8b".to_string(),
+            input: "Hello world".to_string(),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("\"model\":\"llama3.1:8b\""));
+        assert!(json.contains("\"input\":\"Hello world\""));
+    }
+
+    #[test]
+    fn test_embed_response_deserialization() {
+        let json = r#"{"model":"llama3.1:8b","embeddings":[[0.1,0.2,0.3]]}"#;
+        let resp: OllamaEmbedResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.model, "llama3.1:8b");
+        assert_eq!(resp.embeddings.len(), 1);
+        assert_eq!(resp.embeddings[0], vec![0.1, 0.2, 0.3]);
     }
 
     #[test]

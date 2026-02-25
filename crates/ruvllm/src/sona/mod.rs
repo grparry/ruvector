@@ -95,7 +95,9 @@ pub use integration::{
 
 // Re-export distillation bridge
 #[cfg(feature = "ollama")]
-pub use distillation_bridge::SonaDistillationSink;
+pub use distillation_bridge::{
+    EmbeddingProvider, OllamaEmbeddingProvider, SonaDistillationSink,
+};
 
 // Re-export learning bridge
 pub use learning_bridge::SonaLoraBridge;

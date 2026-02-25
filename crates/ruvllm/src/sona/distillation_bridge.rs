@@ -18,6 +18,56 @@ use crate::sona::integration::{SonaIntegration, Trajectory};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+/// Async trait for providing real embeddings from a backend model.
+///
+/// Implementations call an embedding endpoint (e.g. Ollama `/api/embed`)
+/// to produce semantically meaningful vectors, replacing the deterministic
+/// hash-based pseudo-embeddings.
+#[async_trait::async_trait]
+pub trait EmbeddingProvider: Send + Sync {
+    /// Generate an embedding vector for the given text.
+    async fn embed(&self, text: &str) -> crate::error::Result<Vec<f32>>;
+}
+
+/// `EmbeddingProvider` backed by Ollama's `/api/embed` endpoint.
+pub struct OllamaEmbeddingProvider {
+    backend: Arc<crate::backends::ollama_backend::OllamaBackend>,
+}
+
+impl OllamaEmbeddingProvider {
+    /// Create a new provider wrapping an existing `OllamaBackend`.
+    pub fn new(backend: Arc<crate::backends::ollama_backend::OllamaBackend>) -> Self {
+        Self { backend }
+    }
+}
+
+#[async_trait::async_trait]
+impl EmbeddingProvider for OllamaEmbeddingProvider {
+    async fn embed(&self, text: &str) -> crate::error::Result<Vec<f32>> {
+        self.backend.embed(text).await
+    }
+}
+
+/// Normalize an embedding vector to a target dimension.
+///
+/// If the source is longer, it is truncated. If shorter, it is zero-padded.
+/// The result is then L2-normalized to unit length.
+fn normalize_embedding_dim(embedding: Vec<f32>, target_dim: usize) -> Vec<f32> {
+    let mut result = vec![0.0f32; target_dim];
+    let copy_len = embedding.len().min(target_dim);
+    result[..copy_len].copy_from_slice(&embedding[..copy_len]);
+
+    // L2-normalize
+    let magnitude: f32 = result.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if magnitude > 0.0 {
+        for x in &mut result {
+            *x /= magnitude;
+        }
+    }
+
+    result
+}
+
 /// Maps `InferenceTier` to the SONA model index convention:
 ///   0 = Local (tiny/free), 1 = Ollama (small/free), 2 = CloudClaude (large/paid)
 fn tier_to_model_index(tier: InferenceTier) -> usize {
@@ -79,22 +129,36 @@ pub fn text_to_pseudo_embedding(text: &str, dim: usize) -> Vec<f32> {
 /// ```
 pub struct SonaDistillationSink {
     sona: Arc<SonaIntegration>,
-    /// Embedding dimension for generated pseudo-embeddings
+    /// Embedding dimension for generated embeddings
     embedding_dim: usize,
+    /// Optional real embedding provider (e.g. Ollama).
+    /// When set, produces semantically meaningful embeddings.
+    /// Falls back to `text_to_pseudo_embedding` on None or error.
+    embedding_provider: Option<Arc<dyn EmbeddingProvider>>,
     /// Count of events successfully forwarded
     forwarded_count: AtomicU64,
     /// Count of events that failed to forward
     error_count: AtomicU64,
+    /// Count of times real embeddings were used
+    real_embedding_count: AtomicU64,
+    /// Count of times pseudo-embeddings were used as fallback
+    pseudo_embedding_count: AtomicU64,
 }
 
 impl SonaDistillationSink {
     /// Create a new sink that forwards events to the given SONA integration.
+    ///
+    /// Uses hash-based pseudo-embeddings. Call `with_embedding_provider` to
+    /// upgrade to real semantic embeddings.
     pub fn new(sona: Arc<SonaIntegration>) -> Self {
         Self {
             sona,
             embedding_dim: 768, // Match SonaConfig default
+            embedding_provider: None,
             forwarded_count: AtomicU64::new(0),
             error_count: AtomicU64::new(0),
+            real_embedding_count: AtomicU64::new(0),
+            pseudo_embedding_count: AtomicU64::new(0),
         }
     }
 
@@ -103,8 +167,33 @@ impl SonaDistillationSink {
         Self {
             sona,
             embedding_dim,
+            embedding_provider: None,
             forwarded_count: AtomicU64::new(0),
             error_count: AtomicU64::new(0),
+            real_embedding_count: AtomicU64::new(0),
+            pseudo_embedding_count: AtomicU64::new(0),
+        }
+    }
+
+    /// Create with a real embedding provider.
+    ///
+    /// The provider (e.g. `OllamaEmbeddingProvider`) produces semantically
+    /// meaningful vectors instead of hash-based pseudo-embeddings. If the
+    /// provider fails at runtime, the sink falls back to pseudo-embeddings
+    /// transparently.
+    pub fn with_embedding_provider(
+        sona: Arc<SonaIntegration>,
+        embedding_dim: usize,
+        provider: Arc<dyn EmbeddingProvider>,
+    ) -> Self {
+        Self {
+            sona,
+            embedding_dim,
+            embedding_provider: Some(provider),
+            forwarded_count: AtomicU64::new(0),
+            error_count: AtomicU64::new(0),
+            real_embedding_count: AtomicU64::new(0),
+            pseudo_embedding_count: AtomicU64::new(0),
         }
     }
 
@@ -118,10 +207,41 @@ impl SonaDistillationSink {
         self.error_count.load(Ordering::SeqCst)
     }
 
+    /// Number of times real embeddings were used.
+    pub fn real_embedding_count(&self) -> u64 {
+        self.real_embedding_count.load(Ordering::SeqCst)
+    }
+
+    /// Number of times pseudo-embeddings were used as fallback.
+    pub fn pseudo_embedding_count(&self) -> u64 {
+        self.pseudo_embedding_count.load(Ordering::SeqCst)
+    }
+
+    /// Get an embedding for text, using the real provider if available
+    /// and falling back to pseudo-embeddings on failure.
+    async fn get_embedding(&self, text: &str) -> Vec<f32> {
+        if let Some(provider) = &self.embedding_provider {
+            match provider.embed(text).await {
+                Ok(embedding) => {
+                    self.real_embedding_count.fetch_add(1, Ordering::SeqCst);
+                    return normalize_embedding_dim(embedding, self.embedding_dim);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        error = %e,
+                        "Real embedding failed, falling back to pseudo-embedding"
+                    );
+                }
+            }
+        }
+        self.pseudo_embedding_count.fetch_add(1, Ordering::SeqCst);
+        text_to_pseudo_embedding(text, self.embedding_dim)
+    }
+
     /// Convert a DistillationEvent into a SONA Trajectory.
-    fn event_to_trajectory(&self, event: &DistillationEvent) -> Trajectory {
-        let query_embedding = text_to_pseudo_embedding(&event.prompt, self.embedding_dim);
-        let response_embedding = text_to_pseudo_embedding(&event.response, self.embedding_dim);
+    async fn event_to_trajectory(&self, event: &DistillationEvent) -> Trajectory {
+        let query_embedding = self.get_embedding(&event.prompt).await;
+        let response_embedding = self.get_embedding(&event.response).await;
 
         // Build routing features vector from the event metadata
         let routing_features = vec![
@@ -151,7 +271,7 @@ impl SonaDistillationSink {
 #[async_trait::async_trait]
 impl DistillationSink for SonaDistillationSink {
     async fn on_distillation(&self, event: DistillationEvent) {
-        let trajectory = self.event_to_trajectory(&event);
+        let trajectory = self.event_to_trajectory(&event).await;
 
         match self.sona.record_trajectory(trajectory) {
             Ok(()) => {
@@ -212,7 +332,28 @@ mod tests {
     }
 
     #[test]
-    fn test_event_to_trajectory() {
+    fn test_normalize_embedding_dim_truncate() {
+        let long = vec![1.0f32; 128];
+        let result = super::normalize_embedding_dim(long, 64);
+        assert_eq!(result.len(), 64);
+        // Should be L2-normalized
+        let mag: f32 = result.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((mag - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_normalize_embedding_dim_pad() {
+        let short = vec![1.0f32; 32];
+        let result = super::normalize_embedding_dim(short, 64);
+        assert_eq!(result.len(), 64);
+        // Tail should be zero (before normalization they were 0, after normalization they stay 0
+        // because only the first 32 elements contributed magnitude)
+        let mag: f32 = result.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((mag - 1.0).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_event_to_trajectory() {
         let sona = Arc::new(SonaIntegration::new(SonaConfig::default()));
         let sink = SonaDistillationSink::with_embedding_dim(sona, 64);
 
@@ -230,7 +371,7 @@ mod tests {
             timestamp: std::time::SystemTime::now(),
         };
 
-        let trajectory = sink.event_to_trajectory(&event);
+        let trajectory = sink.event_to_trajectory(&event).await;
 
         assert_eq!(trajectory.session_id, "tiered-router");
         assert_eq!(trajectory.model_index, 1); // Ollama
@@ -240,6 +381,92 @@ mod tests {
         assert_eq!(trajectory.routing_features.len(), 8);
         // was_fallback should be 1.0
         assert_eq!(trajectory.routing_features[4], 1.0);
+        // Without provider, should use pseudo-embeddings
+        assert_eq!(sink.pseudo_embedding_count(), 2); // query + response
+        assert_eq!(sink.real_embedding_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_event_to_trajectory_with_mock_provider() {
+        use crate::error::Result;
+
+        struct MockEmbeddingProvider;
+
+        #[async_trait::async_trait]
+        impl super::EmbeddingProvider for MockEmbeddingProvider {
+            async fn embed(&self, _text: &str) -> Result<Vec<f32>> {
+                // Return a 128-dim vector (will be truncated/padded to target dim)
+                Ok(vec![0.5f32; 128])
+            }
+        }
+
+        let sona = Arc::new(SonaIntegration::new(SonaConfig::default()));
+        let provider: Arc<dyn super::EmbeddingProvider> = Arc::new(MockEmbeddingProvider);
+        let sink = SonaDistillationSink::with_embedding_provider(sona, 64, provider);
+
+        let event = DistillationEvent {
+            prompt: "test prompt".to_string(),
+            response: "test response".to_string(),
+            recommended_tier: InferenceTier::Local,
+            actual_tier: InferenceTier::Ollama,
+            was_fallback: true,
+            complexity: 0.3,
+            quality_estimate: 0.8,
+            input_tokens: 30,
+            output_tokens: 50,
+            latency_ms: 100,
+            timestamp: std::time::SystemTime::now(),
+        };
+
+        let trajectory = sink.event_to_trajectory(&event).await;
+
+        assert_eq!(trajectory.query_embedding.len(), 64);
+        assert_eq!(trajectory.response_embedding.len(), 64);
+        assert_eq!(sink.real_embedding_count(), 2); // query + response
+        assert_eq!(sink.pseudo_embedding_count(), 0);
+
+        // Verify embeddings are L2-normalized
+        let mag: f32 = trajectory.query_embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((mag - 1.0).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_provider_fallback_on_error() {
+        use crate::error::{Result, RuvLLMError};
+
+        struct FailingProvider;
+
+        #[async_trait::async_trait]
+        impl super::EmbeddingProvider for FailingProvider {
+            async fn embed(&self, _text: &str) -> Result<Vec<f32>> {
+                Err(RuvLLMError::Http("connection refused".to_string()))
+            }
+        }
+
+        let sona = Arc::new(SonaIntegration::new(SonaConfig::default()));
+        let provider: Arc<dyn super::EmbeddingProvider> = Arc::new(FailingProvider);
+        let sink = SonaDistillationSink::with_embedding_provider(sona, 64, provider);
+
+        let event = DistillationEvent {
+            prompt: "test prompt".to_string(),
+            response: "test response".to_string(),
+            recommended_tier: InferenceTier::Local,
+            actual_tier: InferenceTier::Ollama,
+            was_fallback: true,
+            complexity: 0.3,
+            quality_estimate: 0.8,
+            input_tokens: 30,
+            output_tokens: 50,
+            latency_ms: 100,
+            timestamp: std::time::SystemTime::now(),
+        };
+
+        let trajectory = sink.event_to_trajectory(&event).await;
+
+        // Should fall back to pseudo-embeddings
+        assert_eq!(trajectory.query_embedding.len(), 64);
+        assert_eq!(sink.pseudo_embedding_count(), 2);
+        assert_eq!(sink.real_embedding_count(), 0);
     }
 
     #[tokio::test]
