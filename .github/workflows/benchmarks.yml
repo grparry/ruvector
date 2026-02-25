@@ -1,14 +1,15 @@
 name: Benchmarks
 
 on:
-  pull_request:
-    paths:
-      - 'crates/ruvector-postgres/**'
-      - '.github/workflows/benchmarks.yml'
-  push:
-    branches:
-      - main
-      - develop
+  # Benchmarks suspended on fork — uncomment to re-enable
+  # pull_request:
+  #   paths:
+  #     - 'crates/ruvector-postgres/**'
+  #     - '.github/workflows/benchmarks.yml'
+  # push:
+  #   branches:
+  #     - main
+  #     - develop
   workflow_dispatch:
     inputs:
       run_sql_benchmarks:

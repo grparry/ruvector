@@ -1,16 +1,17 @@
 name: RuvLLM Benchmarks
 
 on:
-  pull_request:
-    paths:
-      - 'crates/ruvllm/**'
-      - '.github/workflows/ruvllm-benchmarks.yml'
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'crates/ruvllm/**'
+  # Benchmarks suspended on fork — uncomment to re-enable
+  # pull_request:
+  #   paths:
+  #     - 'crates/ruvllm/**'
+  #     - '.github/workflows/ruvllm-benchmarks.yml'
+  # push:
+  #   branches:
+  #     - main
+  #     - develop
+  #   paths:
+  #     - 'crates/ruvllm/**'
   workflow_dispatch:
     inputs:
       run_ane_benchmarks:
