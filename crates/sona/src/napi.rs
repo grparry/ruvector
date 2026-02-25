@@ -47,6 +47,7 @@ impl SonaEngine {
             background_interval_ms: config.background_interval_ms.unwrap_or(3600000) as u64,
             quality_threshold: config.quality_threshold.unwrap_or(0.5) as f32,
             enable_simd: config.enable_simd.unwrap_or(true),
+            ..Default::default()
         };
         Self {
             inner: RustSonaEngine::with_config(rust_config),

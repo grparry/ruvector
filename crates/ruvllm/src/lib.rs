@@ -409,6 +409,8 @@ pub use serving::{CompatServer, CompatServerConfig};
 pub use session::{Session, SessionConfig, SessionManager};
 pub use session_index::{KvCacheReference, SessionIndex, SessionState};
 pub use sona::{LearningLoop, SonaConfig, SonaIntegration};
+#[cfg(feature = "ollama")]
+pub use sona::SonaDistillationSink;
 pub use speculative::{
     log_softmax, sample_from_probs, softmax, top_k_filter, top_p_filter, AtomicSpeculativeStats,
     SpeculationTree, SpeculativeConfig as SpeculativeDecodingConfig, SpeculativeDecoder,

@@ -38,7 +38,7 @@ impl Default for BackgroundLoopConfig {
 impl From<&SonaConfig> for BackgroundLoopConfig {
     fn from(config: &SonaConfig) -> Self {
         Self {
-            min_trajectories: 100,
+            min_trajectories: config.min_background_trajectories,
             base_lora_lr: config.base_lora_lr,
             ewc_lambda: config.ewc_lambda,
             extraction_interval: Duration::from_millis(config.background_interval_ms),

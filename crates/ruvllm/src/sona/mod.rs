@@ -81,10 +81,24 @@ pub mod integration;
 // Pretraining for RuvLTRA-Small
 pub mod ruvltra_pretrain;
 
+// Bridge: TieredRouter distillation → SONA learning
+#[cfg(feature = "ollama")]
+pub mod distillation_bridge;
+
+// Bridge: SONA learned patterns → MicroLoRA weight adaptation
+pub mod learning_bridge;
+
 // Re-export integration types (primary API)
 pub use integration::{
     LearningLoop, RoutingRecommendation, SonaConfig, SonaIntegration, SonaStats, Trajectory,
 };
+
+// Re-export distillation bridge
+#[cfg(feature = "ollama")]
+pub use distillation_bridge::SonaDistillationSink;
+
+// Re-export learning bridge
+pub use learning_bridge::SonaLoraBridge;
 
 // Re-export pretraining types
 pub use ruvltra_pretrain::{

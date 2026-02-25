@@ -67,7 +67,10 @@ impl LearningSignal {
 
     /// Estimate gradient using REINFORCE with baseline
     fn estimate_gradient(trajectory: &QueryTrajectory) -> Vec<f32> {
-        if trajectory.steps.is_empty() {
+        if trajectory.steps.len() <= 1 {
+            // Single-step trajectories produce zero REINFORCE gradients
+            // (advantage = reward - baseline = reward - reward = 0), so use
+            // the query embedding as gradient direction, scaled by quality.
             return trajectory.query_embedding.clone();
         }
 
@@ -366,6 +369,12 @@ pub struct SonaConfig {
     pub quality_threshold: f32,
     /// Enable SIMD optimizations
     pub enable_simd: bool,
+    /// Instant loop flush threshold (apply MicroLoRA updates every N signals)
+    pub instant_flush_threshold: usize,
+    /// Minimum trajectories for background loop to process
+    pub min_background_trajectories: usize,
+    /// Minimum cluster size for pattern extraction
+    pub min_cluster_size: usize,
 }
 
 impl Default for SonaConfig {
@@ -389,6 +398,9 @@ impl Default for SonaConfig {
             background_interval_ms: 3600000, // 1 hour
             quality_threshold: 0.3,          // OPTIMIZED: Lower threshold for more learning
             enable_simd: true,
+            instant_flush_threshold: 100,
+            min_background_trajectories: 100,
+            min_cluster_size: 5,
         }
     }
 }
@@ -409,6 +421,9 @@ impl SonaConfig {
             background_interval_ms: 7200000, // 2 hours
             quality_threshold: 0.4,
             enable_simd: true,
+            instant_flush_threshold: 100,
+            min_background_trajectories: 100,
+            min_cluster_size: 5,
         }
     }
 
@@ -427,6 +442,9 @@ impl SonaConfig {
             background_interval_ms: 1800000, // 30 minutes
             quality_threshold: 0.2,          // Learn from more trajectories
             enable_simd: true,
+            instant_flush_threshold: 100,
+            min_background_trajectories: 100,
+            min_cluster_size: 5,
         }
     }
 
@@ -445,6 +463,9 @@ impl SonaConfig {
             background_interval_ms: 3600000,
             quality_threshold: 0.5,
             enable_simd: true,
+            instant_flush_threshold: 100,
+            min_background_trajectories: 100,
+            min_cluster_size: 5,
         }
     }
 
@@ -463,6 +484,9 @@ impl SonaConfig {
             background_interval_ms: 3600000,
             quality_threshold: 0.3,
             enable_simd: true,
+            instant_flush_threshold: 100,
+            min_background_trajectories: 100,
+            min_cluster_size: 5,
         }
     }
 
@@ -484,6 +508,9 @@ impl SonaConfig {
             background_interval_ms: 60000, // 1 minute for quick local updates
             quality_threshold: 0.3,
             enable_simd: true,
+            instant_flush_threshold: 100,
+            min_background_trajectories: 100,
+            min_cluster_size: 5,
         }
     }
 
@@ -505,6 +532,9 @@ impl SonaConfig {
             background_interval_ms: 300000, // 5 minutes consolidation
             quality_threshold: 0.4,         // Higher threshold for quality filtering
             enable_simd: true,
+            instant_flush_threshold: 100,
+            min_background_trajectories: 100,
+            min_cluster_size: 5,
         }
     }
 }

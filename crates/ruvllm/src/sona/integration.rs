@@ -71,6 +71,12 @@ pub struct SonaConfig {
     pub deep_interval_secs: u64,
     /// Minimum quality threshold for learning
     pub quality_threshold: f32,
+    /// Instant loop flush threshold (apply MicroLoRA updates every N signals)
+    pub instant_flush_threshold: usize,
+    /// Minimum trajectories for background loop to process
+    pub min_background_trajectories: usize,
+    /// Minimum cluster size for pattern extraction
+    pub min_cluster_size: usize,
 }
 
 impl Default for SonaConfig {
@@ -87,6 +93,9 @@ impl Default for SonaConfig {
             background_interval_secs: 3600, // 1 hour
             deep_interval_secs: 604800,     // 1 week
             quality_threshold: 0.5,
+            instant_flush_threshold: 100,
+            min_background_trajectories: 100,
+            min_cluster_size: 5,
         }
     }
 }
@@ -162,6 +171,9 @@ impl SonaIntegration {
             base_lora_lr: config.background_learning_rate,
             ewc_lambda: config.ewc_lambda,
             quality_threshold: config.quality_threshold,
+            instant_flush_threshold: config.instant_flush_threshold,
+            min_background_trajectories: config.min_background_trajectories,
+            min_cluster_size: config.min_cluster_size,
             ..Default::default()
         };
 
@@ -179,6 +191,7 @@ impl SonaIntegration {
             embedding_dim: config.embedding_dim.min(256), // PatternConfig uses smaller embedding dim
             max_trajectories: config.pattern_capacity,
             quality_threshold: config.quality_threshold,
+            min_cluster_size: config.min_cluster_size,
             ..Default::default()
         };
         let reasoning_bank = ReasoningBank::new(pattern_config);
@@ -284,11 +297,12 @@ impl SonaIntegration {
         {
             let mut rb = self.reasoning_bank.write();
             for traj in &trajectories {
-                // Create a QueryTrajectory from our Trajectory
-                let query_traj = ruvector_sona::QueryTrajectory::new(
+                // Create a QueryTrajectory from our Trajectory, preserving quality
+                let mut query_traj = ruvector_sona::QueryTrajectory::new(
                     traj.request_id.parse().unwrap_or(0),
                     traj.query_embedding.clone(),
                 );
+                query_traj.final_quality = traj.quality_score;
                 rb.add_trajectory(&query_traj);
             }
             // Extract patterns periodically
@@ -352,6 +366,17 @@ impl SonaIntegration {
     pub fn search_patterns(&self, query: &[f32], limit: usize) -> Vec<LearnedPattern> {
         let rb = self.reasoning_bank.read();
         rb.find_similar(query, limit).into_iter().cloned().collect()
+    }
+
+    /// Flush the SONA engine's instant loop, applying accumulated MicroLoRA gradients.
+    pub fn flush_engine(&self) {
+        let engine = self.engine.read();
+        engine.flush();
+    }
+
+    /// Force-run the background loop regardless of timer, useful for cold-start.
+    pub fn force_background_loop(&self) -> Result<()> {
+        self.trigger_background_loop()
     }
 
     /// Apply learned transformations to input

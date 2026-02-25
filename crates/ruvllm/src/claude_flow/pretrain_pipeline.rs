@@ -156,6 +156,7 @@ impl Default for PretrainConfig {
                 background_interval_secs: 1800,
                 deep_interval_secs: 259200,
                 quality_threshold: 0.6,
+                ..Default::default()
             },
             enable_checkpoints: true,
             checkpoint_interval: 500,

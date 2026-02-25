@@ -1,0 +1,243 @@
+{
+  "tasks": [
+    {
+      "id": "simple_001",
+      "category": "simple",
+      "prompt": "fix typo: change 'teh' to 'the' in line 5",
+      "expected_tier": "Local",
+      "high_quality_response": "Replace 'teh' with 'the' on line 5. This is a simple text substitution that corrects the misspelling. The corrected line reads properly now.",
+      "degraded_response": "teh fix done",
+      "key_phrases": ["replace", "the", "corrected", "substitution"],
+      "max_tokens": 100
+    },
+    {
+      "id": "simple_002",
+      "category": "simple",
+      "prompt": "rename variable x to count in the loop",
+      "expected_tier": "Local",
+      "high_quality_response": "Rename the variable 'x' to 'count' throughout the loop body. Update the declaration, all references inside the loop, and any post-loop usage. The variable name 'count' better describes the accumulator purpose.",
+      "degraded_response": "renamed x",
+      "key_phrases": ["rename", "count", "variable", "declaration"],
+      "max_tokens": 100
+    },
+    {
+      "id": "simple_003",
+      "category": "simple",
+      "prompt": "add a comment explaining what the sort function does",
+      "expected_tier": "Local",
+      "high_quality_response": "Add a documentation comment above the sort function explaining that it performs an in-place comparison sort on the input array, returning elements in ascending order. Include the time complexity of O(n log n) for average case.",
+      "degraded_response": "added comment",
+      "key_phrases": ["documentation", "sort", "ascending", "complexity"],
+      "max_tokens": 100
+    },
+    {
+      "id": "simple_004",
+      "category": "simple",
+      "prompt": "change the return type from int to string",
+      "expected_tier": "Local",
+      "high_quality_response": "Change the function return type from int to string. Update the return statement to convert the integer result using to_string() or format!. Also update any callers that expect an integer to handle the new string return type.",
+      "degraded_response": "changed type",
+      "key_phrases": ["return", "string", "convert", "callers"],
+      "max_tokens": 100
+    },
+    {
+      "id": "simple_005",
+      "category": "simple",
+      "prompt": "remove the unused import of HashMap",
+      "expected_tier": "Local",
+      "high_quality_response": "Remove the unused import statement for HashMap from the file header. The import 'use std::collections::HashMap' is not referenced anywhere in the current module and triggers a compiler warning.",
+      "degraded_response": "removed",
+      "key_phrases": ["remove", "import", "HashMap", "unused", "warning"],
+      "max_tokens": 100
+    },
+    {
+      "id": "simple_006",
+      "category": "simple",
+      "prompt": "fix indentation: use 4 spaces instead of tabs",
+      "expected_tier": "Local",
+      "high_quality_response": "Convert all tab characters to 4 spaces throughout the file. This aligns with the project's style guide. Applied consistently across all indentation levels including nested blocks, match arms, and continuation lines.",
+      "degraded_response": "fixed tabs",
+      "key_phrases": ["spaces", "indentation", "style", "consistent"],
+      "max_tokens": 100
+    },
+    {
+      "id": "simple_007",
+      "category": "simple",
+      "prompt": "update the version number from 0.1.0 to 0.2.0 in Cargo.toml",
+      "expected_tier": "Local",
+      "high_quality_response": "Update the version field in Cargo.toml from '0.1.0' to '0.2.0'. This bumps the minor version to reflect the new features added since the last release. No other version references need updating in this file.",
+      "degraded_response": "version bumped",
+      "key_phrases": ["version", "0.2.0", "Cargo.toml", "minor"],
+      "max_tokens": 100
+    },
+    {
+      "id": "simple_008",
+      "category": "simple",
+      "prompt": "add a newline at the end of the file",
+      "expected_tier": "Local",
+      "high_quality_response": "Add a trailing newline character at the end of the file. Most style guides and tools expect files to end with a newline. This prevents the 'No newline at end of file' warning from git diff and many linters.",
+      "degraded_response": "done",
+      "key_phrases": ["newline", "trailing", "end of file", "warning"],
+      "max_tokens": 100
+    },
+    {
+      "id": "medium_001",
+      "category": "medium",
+      "prompt": "implement a function that calculates the fibonacci sequence up to n terms",
+      "expected_tier": "Ollama",
+      "high_quality_response": "Implement a fibonacci function using iterative approach for efficiency. Initialize two variables a=0 and b=1, then loop n times swapping values. Return a vector containing all terms. The iterative approach runs in O(n) time and O(n) space, avoiding the exponential blowup of naive recursion. Include input validation for n=0 returning empty vec.",
+      "degraded_response": "fn fib(n) { if n < 2 { n } else { fib(n-1) + fib(n-2) } }",
+      "key_phrases": ["fibonacci", "iterative", "O(n)", "vector", "initialize"],
+      "max_tokens": 200
+    },
+    {
+      "id": "medium_002",
+      "category": "medium",
+      "prompt": "add unit tests for the parse_config function that handles JSON input",
+      "expected_tier": "Ollama",
+      "high_quality_response": "Add comprehensive unit tests for parse_config covering: valid JSON with all fields, valid JSON with optional fields missing, empty JSON object, malformed JSON string, null values, nested objects, array values, unicode strings, and very large input. Use assert_eq for expected values and assert!(result.is_err()) for error cases. Each test should be independent and clearly named.",
+      "degraded_response": "#[test] fn test() { parse_config(\"{}\"); }",
+      "key_phrases": ["unit test", "parse_config", "assert", "error cases", "malformed"],
+      "max_tokens": 200
+    },
+    {
+      "id": "medium_003",
+      "category": "medium",
+      "prompt": "implement a binary search function that returns the index of the target element",
+      "expected_tier": "Ollama",
+      "high_quality_response": "Implement binary search on a sorted slice. Maintain low and high bounds, compute mid without overflow using low + (high - low) / 2. Compare target with mid element: if equal return Some(mid), if less search left half, if greater search right half. Return None if not found. Time complexity O(log n), handles empty slices and duplicate elements correctly.",
+      "degraded_response": "fn search(arr, t) { for i in arr { if i == t { return i } } }",
+      "key_phrases": ["binary search", "sorted", "O(log n)", "low", "high", "mid"],
+      "max_tokens": 200
+    },
+    {
+      "id": "medium_004",
+      "category": "medium",
+      "prompt": "refactor the error handling to use Result types instead of unwrap calls",
+      "expected_tier": "Ollama",
+      "high_quality_response": "Refactor all unwrap() calls to proper Result propagation using the ? operator. Define a custom error enum with variants for each failure mode: IoError, ParseError, ValidationError. Implement From traits for automatic conversion from std::io::Error and serde_json::Error. Replace panic-on-error with graceful error propagation to callers.",
+      "degraded_response": "use Result instead of unwrap",
+      "key_phrases": ["Result", "error enum", "propagation", "From trait", "operator"],
+      "max_tokens": 200
+    },
+    {
+      "id": "medium_005",
+      "category": "medium",
+      "prompt": "implement a LRU cache with a maximum capacity of 100 entries",
+      "expected_tier": "Ollama",
+      "high_quality_response": "Implement an LRU cache using a HashMap for O(1) lookups combined with a doubly-linked list for O(1) eviction ordering. On get(), move the accessed entry to the front of the list. On put(), insert at front and if capacity exceeds 100, remove the tail entry from both the list and map. Include methods: new(capacity), get(&key), put(key, value), len(), and clear().",
+      "degraded_response": "use hashmap with vec",
+      "key_phrases": ["LRU", "cache", "HashMap", "linked list", "eviction", "capacity"],
+      "max_tokens": 200
+    },
+    {
+      "id": "medium_006",
+      "category": "medium",
+      "prompt": "add input validation for the user registration endpoint",
+      "expected_tier": "Ollama",
+      "high_quality_response": "Add comprehensive input validation for user registration: validate email format using regex pattern, enforce password length minimum of 8 characters with at least one uppercase, one lowercase, one digit, and one special character. Validate username is alphanumeric 3-32 characters. Return structured validation errors with field name and message. Sanitize all string inputs to prevent injection.",
+      "degraded_response": "check if email has @",
+      "key_phrases": ["validation", "email", "password", "regex", "sanitize", "structured"],
+      "max_tokens": 200
+    },
+    {
+      "id": "medium_007",
+      "category": "medium",
+      "prompt": "write a function that merges two sorted arrays into one sorted array",
+      "expected_tier": "Ollama",
+      "high_quality_response": "Implement merge of two sorted arrays using the two-pointer technique. Initialize pointers i and j at the start of each array. Compare elements at both pointers, push the smaller one to the result and advance that pointer. After one array is exhausted, append the remaining elements from the other. Time complexity O(n+m), space O(n+m). Handles empty arrays correctly.",
+      "degraded_response": "concat and sort",
+      "key_phrases": ["merge", "sorted", "two-pointer", "compare", "O(n+m)"],
+      "max_tokens": 200
+    },
+    {
+      "id": "medium_008",
+      "category": "medium",
+      "prompt": "implement a rate limiter using the token bucket algorithm",
+      "expected_tier": "Ollama",
+      "high_quality_response": "Implement token bucket rate limiter with configurable capacity and refill rate. Store bucket state: current tokens (f64), last refill timestamp, capacity, and refill rate per second. On each request, calculate elapsed time, add proportional tokens (capped at capacity), then check if at least one token is available to consume. Thread-safe using Mutex. Provides try_acquire() returning bool and wait_for_token() async method.",
+      "degraded_response": "count requests per second",
+      "key_phrases": ["token bucket", "capacity", "refill", "rate", "timestamp", "thread-safe"],
+      "max_tokens": 200
+    },
+    {
+      "id": "complex_001",
+      "category": "complex",
+      "prompt": "design a caching layer for the database queries with TTL support and cache invalidation",
+      "expected_tier": "CloudClaude",
+      "high_quality_response": "Design a multi-tier caching layer: L1 in-process cache (DashMap for lock-free concurrent access, 1000 entry limit), L2 shared cache (Redis with connection pooling). Each cache entry stores: value, created_at, ttl_seconds, version tag, and access_count. Implement write-through caching: on write, update DB first, then invalidate both cache layers. Use cache-aside pattern for reads: check L1, then L2, then DB with backfill. TTL-based expiration runs via background task every 30 seconds scanning for expired entries. Support explicit invalidation by key pattern using glob matching. Include metrics: hit rate, miss rate, eviction count, average latency per tier. Implement circuit breaker for cache backend failures falling through to DB directly.",
+      "degraded_response": "use hashmap with timeout",
+      "key_phrases": ["multi-tier", "cache", "TTL", "invalidation", "write-through", "DashMap", "Redis", "circuit breaker", "metrics"],
+      "max_tokens": 500
+    },
+    {
+      "id": "complex_002",
+      "category": "complex",
+      "prompt": "perform a security audit of the authentication module and identify vulnerabilities",
+      "expected_tier": "CloudClaude",
+      "high_quality_response": "Security audit findings for the authentication module: 1) Password hashing uses bcrypt with cost factor 12, which is acceptable but consider migrating to argon2id for memory-hard resistance. 2) JWT tokens lack audience claim validation, allowing token reuse across services. Add aud claim and validate on every request. 3) Session fixation vulnerability: session ID is not rotated after successful login. Regenerate session on authentication state change. 4) Rate limiting on login endpoint is per-IP only, vulnerable to distributed brute force. Add per-account rate limiting with exponential backoff. 5) Password reset tokens are generated using rand::random() instead of cryptographically secure OsRng. 6) CSRF protection missing on session management endpoints. Add SameSite=Strict cookie attribute and CSRF tokens. 7) Error messages distinguish between invalid username and invalid password, enabling user enumeration. Normalize error response.",
+      "degraded_response": "looks ok, maybe add rate limiting",
+      "key_phrases": ["security", "audit", "vulnerability", "JWT", "bcrypt", "session fixation", "CSRF", "rate limiting", "enumeration"],
+      "max_tokens": 500
+    },
+    {
+      "id": "complex_003",
+      "category": "complex",
+      "prompt": "design a distributed task queue with retry logic, dead letter queue, and monitoring",
+      "expected_tier": "CloudClaude",
+      "high_quality_response": "Design a distributed task queue with the following architecture: Message broker using Redis Streams for reliable delivery with consumer groups. Each task has: id, payload, priority (1-10), max_retries (default 3), retry_delay_strategy (exponential backoff starting at 1s with 2x multiplier, max 5 minutes), created_at, and status (pending/processing/completed/failed/dead). Worker pool with configurable concurrency per worker, heartbeat every 30s, and automatic task reclaim after 5 minutes of no heartbeat. Retry logic: on failure, increment attempt counter, compute next delay using exponential backoff with jitter, re-enqueue with delay. After max_retries exhausted, move to dead letter queue (separate Redis Stream) preserving full attempt history. Monitoring dashboard tracks: queue depth, processing rate, error rate, p50/p95/p99 latency, worker health, DLQ size. Alerting rules: DLQ growth above 100/hour, queue depth above 10000, worker count below minimum. Graceful shutdown: stop accepting new tasks, drain in-progress with 30s timeout, return uncompleted to queue.",
+      "degraded_response": "use redis for queue with retry",
+      "key_phrases": ["distributed", "task queue", "retry", "exponential backoff", "dead letter", "consumer groups", "heartbeat", "monitoring", "graceful shutdown"],
+      "max_tokens": 500
+    },
+    {
+      "id": "complex_004",
+      "category": "complex",
+      "prompt": "implement a connection pool manager with health checks, automatic reconnection, and load balancing",
+      "expected_tier": "CloudClaude",
+      "high_quality_response": "Implement a connection pool manager with: Pool configuration (min_connections: 5, max_connections: 50, acquire_timeout: 5s, idle_timeout: 300s, max_lifetime: 1800s). Connection lifecycle: pre-warm min_connections on startup, lazily create up to max on demand, close idle connections exceeding min after idle_timeout. Health checking: background task pings every connection every 60s with a lightweight query, mark unhealthy connections for replacement, maintain health score per backend (0.0-1.0 based on recent success rate). Automatic reconnection with exponential backoff (1s, 2s, 4s, max 30s) and jitter. Load balancing strategy: weighted round-robin based on health scores and current load. Connection wrapping: guard pattern that returns connection to pool on drop, tracks checkout duration for metrics. Metrics: pool size, active count, idle count, wait queue length, checkout latency histogram, connection lifetime, health check failures. Circuit breaker per backend: open after 5 consecutive failures, half-open after 30s for probe, close after 3 successful probes.",
+      "degraded_response": "make pool with vec of connections",
+      "key_phrases": ["connection pool", "health check", "reconnection", "load balancing", "exponential backoff", "circuit breaker", "metrics", "weighted round-robin"],
+      "max_tokens": 500
+    },
+    {
+      "id": "complex_005",
+      "category": "complex",
+      "prompt": "design an event sourcing system with CQRS for the order management domain",
+      "expected_tier": "CloudClaude",
+      "high_quality_response": "Design event sourcing with CQRS for order management: Event store backed by append-only PostgreSQL table (event_id, aggregate_id, event_type, payload JSONB, version, timestamp, metadata). Aggregate root Order with commands: CreateOrder, AddItem, RemoveItem, ApplyDiscount, SubmitOrder, CancelOrder. Each command validated against current state, then produces domain events: OrderCreated, ItemAdded, ItemRemoved, DiscountApplied, OrderSubmitted, OrderCancelled. Event handlers project to read models: OrderSummaryView (denormalized for fast queries), OrderTimelineView (full history), InventoryView (stock levels). Read side uses materialized views updated asynchronously via event bus. Snapshotting every 100 events per aggregate to bound replay time. Optimistic concurrency using version numbers. Event bus supports at-least-once delivery with idempotent handlers using processed_events tracking table. Eventual consistency between write and read sides with typical lag under 100ms.",
+      "degraded_response": "store events in database, read from views",
+      "key_phrases": ["event sourcing", "CQRS", "aggregate", "domain events", "projection", "snapshot", "optimistic concurrency", "eventual consistency"],
+      "max_tokens": 500
+    },
+    {
+      "id": "complex_006",
+      "category": "complex",
+      "prompt": "implement a comprehensive logging and observability framework with structured logging, distributed tracing, and metrics",
+      "expected_tier": "CloudClaude",
+      "high_quality_response": "Implement observability framework with three pillars: Structured Logging using tracing crate with JSON output format, log levels (ERROR, WARN, INFO, DEBUG, TRACE), span context propagation, field extraction (request_id, user_id, service, duration_ms). Log aggregation via OpenTelemetry exporter to collector. Distributed Tracing: instrument all HTTP handlers, database queries, and external calls with spans. Propagate trace context via W3C TraceContext headers. Sample at 10% for normal traffic, 100% for errors. Export spans to Jaeger/Tempo via OTLP. Metrics: use prometheus client library, expose /metrics endpoint. Track: request_count (counter, labels: method, path, status), request_duration_seconds (histogram, buckets: 0.01, 0.05, 0.1, 0.5, 1.0, 5.0), active_connections (gauge), error_rate (counter), business metrics (orders_created, cache_hit_ratio). Dashboard templates for Grafana with RED method panels. Alert rules: error rate above 1%, p99 latency above 2s, 5xx rate above 0.1%.",
+      "degraded_response": "use println for logging and count errors",
+      "key_phrases": ["structured logging", "distributed tracing", "metrics", "OpenTelemetry", "prometheus", "spans", "W3C TraceContext", "Grafana"],
+      "max_tokens": 500
+    },
+    {
+      "id": "complex_007",
+      "category": "complex",
+      "prompt": "design a plugin system with hot-reloading, sandboxing, and dependency management",
+      "expected_tier": "CloudClaude",
+      "high_quality_response": "Design a plugin system with: Plugin interface trait defining lifecycle hooks (on_load, on_unload, on_message, version) with stable ABI using C FFI. Hot reloading: watch plugin directory with inotify/kqueue, on change compile new version, load via dlopen/LoadLibrary, verify ABI compatibility, swap atomically using RwLock (readers continue with old, writer swaps pointer), unload old after grace period (5s for in-flight requests to complete). Sandboxing: plugins run in separate process with IPC via Unix domain sockets, resource limits via cgroups (CPU: 50%, memory: 256MB, no network access by default), capability-based permissions (FileRead, FileWrite, NetworkAccess, DatabaseQuery) declared in plugin manifest. Dependency management: plugin manifest (TOML) declares name, version, semver compatibility range, required capabilities, and dependencies on other plugins. Dependency resolver uses topological sort for load order, detects circular dependencies at registration time. Plugin registry: in-memory catalog with version history, enabled/disabled state, health status, performance metrics per plugin.",
+      "degraded_response": "load dlls and call functions",
+      "key_phrases": ["plugin", "hot-reload", "sandboxing", "FFI", "capability", "dependency", "inotify", "atomic swap", "manifest"],
+      "max_tokens": 500
+    },
+    {
+      "id": "complex_008",
+      "category": "complex",
+      "prompt": "implement a data migration framework with rollback support, validation, and zero-downtime deployment",
+      "expected_tier": "CloudClaude",
+      "high_quality_response": "Implement a data migration framework: Migration definition as versioned files (V001__create_users.up.sql, V001__create_users.down.sql) with both forward and rollback scripts. Migration table tracks: version, description, checksum (SHA-256 of script), applied_at, execution_time_ms, status (pending/applied/rolled_back/failed). Execution engine: acquire advisory lock to prevent concurrent migrations, verify checksum of already-applied migrations to detect tampering, execute in transaction (for DDL-supporting databases) or with manual rollback tracking. Zero-downtime strategy: expand-contract pattern. Phase 1 (expand): add new columns/tables alongside old, deploy code that writes to both. Phase 2 (migrate): backfill data with batched updates (1000 rows per batch, 100ms sleep between batches to limit DB load). Phase 3 (contract): remove old columns after verification period. Validation: pre-migration checks (disk space, replication lag, active connections), post-migration checks (row counts, constraint verification, sample data spot checks). Dry-run mode executes against transaction that gets rolled back. CLI: migrate up, migrate down, migrate status, migrate validate, migrate dry-run.",
+      "degraded_response": "run sql scripts in order",
+      "key_phrases": ["migration", "rollback", "zero-downtime", "expand-contract", "checksum", "advisory lock", "validation", "dry-run", "backfill"]
+    }
+  ]
+}

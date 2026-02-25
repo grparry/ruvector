@@ -161,6 +161,7 @@ impl RuvLtraPretrainConfig {
                 background_interval_secs: 1800, // 30 minutes
                 deep_interval_secs: 259200, // 3 days
                 quality_threshold: 0.6, // Higher threshold for small model
+                ..Default::default()
             },
             dataset: DatasetConfig {
                 max_routing_prompts: 10000,

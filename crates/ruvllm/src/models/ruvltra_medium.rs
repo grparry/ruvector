@@ -360,6 +360,7 @@ impl RuvLtraMediumConfig {
                 background_interval_secs: 3600,
                 deep_interval_secs: 604800,
                 quality_threshold: 0.6,
+                ..Default::default()
             },
             sona_hooks: SonaHookConfig::default(),
 

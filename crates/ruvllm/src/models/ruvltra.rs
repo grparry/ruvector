@@ -273,6 +273,7 @@ impl RuvLtraConfig {
                 background_interval_secs: 3600,
                 deep_interval_secs: 604800,
                 quality_threshold: 0.5,
+                ..Default::default()
             },
         }
     }

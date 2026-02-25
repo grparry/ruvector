@@ -3,6 +3,8 @@
 //! This module provides test fixtures including sample prompts, expected patterns,
 //! and perplexity baselines for validating the RuvLTRA-Small inference engine.
 
+pub mod fixture_backend;
+
 use std::collections::HashMap;
 
 // ============================================================================

@@ -38,6 +38,7 @@ impl Default for OptimizationConfig {
                 background_interval_secs: 3600,
                 deep_interval_secs: 604800,
                 quality_threshold: 0.6,
+                ..Default::default()
             },
             model_config: RuvLtraConfig::qwen_0_5b(),
             target_use_cases: vec![

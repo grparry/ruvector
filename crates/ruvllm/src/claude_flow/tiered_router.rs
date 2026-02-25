@@ -837,8 +837,11 @@ pub struct StreamDistillationContext {
 /// substantial output quickly is likely producing quality content.
 /// Returns a value in [0.0, 1.0].
 fn estimate_quality(output_tokens: usize, latency_ms: u64) -> f32 {
-    if output_tokens == 0 || latency_ms == 0 {
+    if output_tokens == 0 {
         return 0.0;
+    }
+    if latency_ms == 0 {
+        return 1.0; // Instant response = maximum quality
     }
     // Tokens per second as quality proxy (capped at 1.0)
     // 50+ tok/s = 1.0, 0 tok/s = 0.0
@@ -1207,8 +1210,10 @@ mod tests {
     fn test_estimate_quality() {
         // 0 tokens = 0 quality
         assert_eq!(estimate_quality(0, 100), 0.0);
-        // 0 latency = 0 quality
-        assert_eq!(estimate_quality(100, 0), 0.0);
+        // 0 latency with tokens = instant response = max quality
+        assert_eq!(estimate_quality(100, 0), 1.0);
+        // 0 tokens + 0 latency = 0 quality (no output)
+        assert_eq!(estimate_quality(0, 0), 0.0);
         // 50 tokens in 1 second = 50 tps = 1.0
         assert_eq!(estimate_quality(50, 1000), 1.0);
         // 25 tokens in 1 second = 25 tps = 0.5

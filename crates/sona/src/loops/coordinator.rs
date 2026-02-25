@@ -41,6 +41,7 @@ impl LoopCoordinator {
         let reasoning_bank = Arc::new(RwLock::new(ReasoningBank::new(PatternConfig {
             embedding_dim: config.embedding_dim,
             k_clusters: config.pattern_clusters,
+            min_cluster_size: config.min_cluster_size,
             ..Default::default()
         })));
 

@@ -39,7 +39,7 @@ impl From<&SonaConfig> for InstantLoopConfig {
             micro_lora_rank: config.micro_lora_rank,
             micro_lora_lr: config.micro_lora_lr,
             buffer_capacity: config.trajectory_capacity,
-            flush_threshold: 100,
+            flush_threshold: config.instant_flush_threshold,
         }
     }
 }

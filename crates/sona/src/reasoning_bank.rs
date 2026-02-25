@@ -152,7 +152,9 @@ impl ReasoningBank {
             return Vec::new();
         }
 
-        let k = self.config.k_clusters.min(self.trajectories.len());
+        // Adaptive: ensure enough trajectories per cluster to meet min_cluster_size
+        let max_feasible_k = self.trajectories.len() / self.config.min_cluster_size.max(1);
+        let k = self.config.k_clusters.min(self.trajectories.len()).min(max_feasible_k.max(1));
         if k == 0 {
             return Vec::new();
         }
