@@ -56,8 +56,11 @@ TieredRouter ──► analyze complexity
    quality estimate, and routing metadata.
 
 3. **Record**: The `SonaDistillationSink` converts the event into a SONA
-   `Trajectory` with pseudo-embeddings derived from the prompt and response
-   text, then records it in the SONA integration layer.
+   `Trajectory` with embeddings derived from the prompt and response text,
+   then records it in the SONA integration layer. When an `EmbeddingProvider`
+   is configured (e.g. `OllamaEmbeddingProvider`), the sink produces real
+   semantic embeddings via the model's `/api/embed` endpoint. Without a
+   provider it falls back to deterministic hash-based pseudo-embeddings.
 
 4. **Learn (instant)**: On every trajectory, the SONA engine's instant loop
    generates a `LearningSignal` and accumulates gradients in its internal
@@ -87,7 +90,8 @@ TieredRouter ──► analyze complexity
 | Component | Crate | Role |
 |---|---|---|
 | `TieredRouter` | ruvllm | Routes requests across Local/Ollama/Claude tiers with fallback |
-| `SonaDistillationSink` | ruvllm | Converts escalation events into SONA trajectories |
+| `SonaDistillationSink` | ruvllm | Converts escalation events into SONA trajectories (supports real or pseudo-embeddings) |
+| `EmbeddingProvider` | ruvllm | Async trait for real embedding backends (implemented by `OllamaEmbeddingProvider`) |
 | `SonaIntegration` | ruvllm | Manages trajectory buffer, EWC++, ReasoningBank, and SONA engine |
 | `SonaLoraBridge` | ruvllm | Applies learned patterns and transforms to MicroLoRA weights |
 | `MicroLoRA` | ruvllm | Ultra-lightweight rank 1-2 LoRA adapters (<1MB, <1ms forward) |
@@ -120,15 +124,20 @@ learning activates, which prevents noise from corrupting weights.
   routing representations, not a language model's decoder weights.
 - **Replace human review**: Weight updates apply automatically within the LoRA
   adapter. There is no approval gate for individual weight changes.
-- **Use real embeddings**: Currently uses deterministic hash-based
-  pseudo-embeddings. A real embedding model would improve pattern quality.
+- ~~**Use real embeddings**~~: Resolved. `SonaDistillationSink` now accepts an
+  `EmbeddingProvider` (e.g. `OllamaEmbeddingProvider`) that calls Ollama's
+  `/api/embed` endpoint for semantically meaningful vectors. Dimension mismatch
+  between the model output and SONA's target dimension is handled via truncation
+  and L2 normalization. Falls back to hash-based pseudo-embeddings when the
+  provider is unavailable.
 - **Learn to serve locally**: Making the local tier actually handle requests it
   previously couldn't requires a real local model behind the MicroLoRA, not just
   routing adaptation.
 
 ## What it needs to become production-ready
 
-1. **Real embedding model** for trajectory recording and pattern matching
+1. ~~**Real embedding model**~~ Done — `OllamaEmbeddingProvider` calls
+   `/api/embed` for real semantic vectors during trajectory recording
 2. **Real local model** behind the MicroLoRA so weight shifts change generation
 3. **Multi-step trajectories** from chain-of-thought or multi-turn conversations
    to unlock full REINFORCE gradient signal
