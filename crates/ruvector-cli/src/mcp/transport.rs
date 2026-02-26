@@ -13,7 +13,7 @@ use futures::stream::Stream;
 use serde_json;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 /// STDIO transport for local MCP communication
 pub struct StdioTransport {
@@ -97,11 +97,26 @@ impl SseTransport {
 
     /// Run SSE transport server
     pub async fn run(&self) -> Result<()> {
+        // Use restrictive CORS: only allow localhost origins by default
+        let cors = CorsLayer::new()
+            .allow_origin(AllowOrigin::predicate(|origin, _| {
+                if let Ok(origin_str) = origin.to_str() {
+                    origin_str.starts_with("http://127.0.0.1")
+                        || origin_str.starts_with("http://localhost")
+                        || origin_str.starts_with("https://127.0.0.1")
+                        || origin_str.starts_with("https://localhost")
+                } else {
+                    false
+                }
+            }))
+            .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
+            .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
+
         let app = Router::new()
             .route("/", get(root))
             .route("/mcp", post(mcp_handler))
             .route("/mcp/sse", get(mcp_sse_handler))
-            .layer(CorsLayer::permissive())
+            .layer(cors)
             .with_state(self.handler.clone());
 
         let addr = format!("{}:{}", self.host, self.port);

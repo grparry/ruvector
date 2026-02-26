@@ -75,6 +75,12 @@ pub struct McpConfig {
     /// Enable CORS
     #[serde(default = "default_true")]
     pub cors: bool,
+
+    /// Allowed data directory for MCP file operations (path confinement)
+    /// All db_path and backup_path values must resolve within this directory.
+    /// Defaults to the current working directory.
+    #[serde(default = "default_data_dir")]
+    pub data_dir: String,
 }
 
 // Default value functions
@@ -96,6 +102,12 @@ fn default_true() -> bool {
 
 fn default_batch_size() -> usize {
     1000
+}
+
+fn default_data_dir() -> String {
+    std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| ".".to_string())
 }
 
 fn default_host() -> String {
@@ -144,6 +156,7 @@ impl Default for McpConfig {
             host: default_host(),
             port: default_port(),
             cors: true,
+            data_dir: default_data_dir(),
         }
     }
 }
@@ -217,6 +230,10 @@ impl Config {
 
         if let Ok(port) = std::env::var("RUVECTOR_MCP_PORT") {
             self.mcp.port = port.parse().context("Invalid RUVECTOR_MCP_PORT")?;
+        }
+
+        if let Ok(data_dir) = std::env::var("RUVECTOR_MCP_DATA_DIR") {
+            self.mcp.data_dir = data_dir;
         }
 
         Ok(())

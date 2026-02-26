@@ -218,7 +218,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add npm/core/platforms/ npm/core/native/
+          git add -f npm/core/platforms/ npm/core/native/
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else

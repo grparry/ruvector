@@ -456,10 +456,18 @@ impl MmapGradientAccumulator {
     /// * `node_id` - Node identifier
     ///
     /// # Returns
-    /// Byte offset in the gradient file
+    /// Byte offset in the gradient file, or None on overflow or out-of-bounds
+    ///
+    /// # Security
+    /// Uses checked arithmetic to prevent integer overflow (SEC-001).
     #[inline]
-    pub fn grad_offset(&self, node_id: u64) -> usize {
-        (node_id as usize) * self.d_embed * std::mem::size_of::<f32>()
+    pub fn grad_offset(&self, node_id: u64) -> Option<usize> {
+        let node_idx = usize::try_from(node_id).ok()?;
+        if node_idx >= self.n_nodes {
+            return None;
+        }
+        let elem_size = std::mem::size_of::<f32>();
+        node_idx.checked_mul(self.d_embed)?.checked_mul(elem_size)
     }
 
     /// Accumulate gradients for a specific node.
@@ -477,14 +485,18 @@ impl MmapGradientAccumulator {
             "Gradient length must match d_embed"
         );
 
+        let offset = self.grad_offset(node_id)
+            .expect("node_id out of bounds or offset overflow");
+
         let lock_idx = (node_id as usize) / self.lock_granularity;
+        assert!(lock_idx < self.locks.len(), "lock index out of bounds");
         let _lock = self.locks[lock_idx].write();
 
-        let offset = self.grad_offset(node_id);
-
-        // Safety: We hold the write lock for this region, ensuring exclusive access
+        // Safety: We validated node_id bounds and offset above, and hold the write lock
         unsafe {
             let mmap = &mut *self.grad_mmap.get();
+            assert!(offset + self.d_embed * std::mem::size_of::<f32>() <= mmap.len(),
+                "gradient write would exceed mmap bounds");
             let ptr = mmap.as_mut_ptr().add(offset) as *mut f32;
             let grad_slice = std::slice::from_raw_parts_mut(ptr, self.d_embed);
 
@@ -543,14 +555,18 @@ impl MmapGradientAccumulator {
     /// # Returns
     /// Slice containing the gradient vector
     pub fn get_grad(&self, node_id: u64) -> &[f32] {
+        let offset = self.grad_offset(node_id)
+            .expect("node_id out of bounds or offset overflow");
+
         let lock_idx = (node_id as usize) / self.lock_granularity;
+        assert!(lock_idx < self.locks.len(), "lock index out of bounds");
         let _lock = self.locks[lock_idx].read();
 
-        let offset = self.grad_offset(node_id);
-
-        // Safety: We hold the read lock for this region
+        // Safety: We validated node_id bounds and offset above, and hold the read lock
         unsafe {
             let mmap = &*self.grad_mmap.get();
+            assert!(offset + self.d_embed * std::mem::size_of::<f32>() <= mmap.len(),
+                "gradient read would exceed mmap bounds");
             let ptr = mmap.as_ptr().add(offset) as *const f32;
             std::slice::from_raw_parts(ptr, self.d_embed)
         }

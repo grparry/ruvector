@@ -11,6 +11,7 @@ use ruvector_core::{
 use ruvector_gnn::{compress::TensorCompress, search::differentiable_search};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
@@ -23,17 +24,24 @@ pub struct McpHandler {
     gnn_cache: Arc<GnnCache>,
     /// Tensor compressor for GNN operations
     tensor_compress: Arc<TensorCompress>,
+    /// Allowed base directory for all file operations (path confinement)
+    allowed_data_dir: PathBuf,
 }
 
 impl McpHandler {
     pub fn new(config: Config) -> Self {
         let gnn_cache = Arc::new(GnnCache::new(GnnCacheConfig::default()));
+        let allowed_data_dir = PathBuf::from(&config.mcp.data_dir);
+        // Canonicalize at startup so all later comparisons are absolute
+        let allowed_data_dir = std::fs::canonicalize(&allowed_data_dir)
+            .unwrap_or_else(|_| std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")));
 
         Self {
             config,
             databases: Arc::new(RwLock::new(HashMap::new())),
             gnn_cache,
             tensor_compress: Arc::new(TensorCompress::new()),
+            allowed_data_dir,
         }
     }
 
@@ -42,6 +50,61 @@ impl McpHandler {
         let handler = Self::new(config);
         handler.gnn_cache.preload_common_layers().await;
         handler
+    }
+
+    /// Validate that a user-supplied path resolves within the allowed data directory.
+    ///
+    /// Prevents CWE-22 path traversal by:
+    /// 1. Resolving the path relative to `allowed_data_dir` (not cwd)
+    /// 2. Canonicalizing to eliminate `..`, symlinks, and other tricks
+    /// 3. Checking that the canonical path starts with the allowed directory
+    fn validate_path(&self, user_path: &str) -> Result<PathBuf> {
+        // Reject obviously malicious absolute paths outside data dir
+        let path = Path::new(user_path);
+
+        // If relative, resolve against allowed_data_dir
+        let resolved = if path.is_absolute() {
+            PathBuf::from(user_path)
+        } else {
+            self.allowed_data_dir.join(user_path)
+        };
+
+        // For existing paths, canonicalize resolves symlinks and ..
+        // For non-existing paths, canonicalize the parent and append the filename
+        let canonical = if resolved.exists() {
+            std::fs::canonicalize(&resolved)
+                .with_context(|| format!("Failed to resolve path: {}", user_path))?
+        } else {
+            // Canonicalize the parent directory (must exist), then append filename
+            let parent = resolved.parent().unwrap_or(Path::new("/"));
+            let parent_canonical = if parent.exists() {
+                std::fs::canonicalize(parent)
+                    .with_context(|| format!("Parent directory does not exist: {}", parent.display()))?
+            } else {
+                // Create the parent directory within allowed_data_dir if it doesn't exist
+                anyhow::bail!(
+                    "Path '{}' references non-existent directory '{}'",
+                    user_path,
+                    parent.display()
+                );
+            };
+            let filename = resolved
+                .file_name()
+                .ok_or_else(|| anyhow::anyhow!("Invalid path: no filename in '{}'", user_path))?;
+            parent_canonical.join(filename)
+        };
+
+        // Security check: canonical path must be inside allowed_data_dir
+        if !canonical.starts_with(&self.allowed_data_dir) {
+            anyhow::bail!(
+                "Access denied: path '{}' resolves to '{}' which is outside the allowed data directory '{}'",
+                user_path,
+                canonical.display(),
+                self.allowed_data_dir.display()
+            );
+        }
+
+        Ok(canonical)
     }
 
     /// Handle MCP request
@@ -387,8 +450,11 @@ impl McpHandler {
         let params: CreateDbParams =
             serde_json::from_value(args.clone()).context("Invalid parameters")?;
 
+        // Validate path to prevent directory traversal (CWE-22)
+        let validated_path = self.validate_path(&params.path)?;
+
         let mut db_options = self.config.to_db_options();
-        db_options.storage_path = params.path.clone();
+        db_options.storage_path = validated_path.to_string_lossy().to_string();
         db_options.dimensions = params.dimensions;
 
         if let Some(metric) = params.distance_metric {
@@ -402,12 +468,13 @@ impl McpHandler {
         }
 
         let db = VectorDB::new(db_options)?;
+        let path_str = validated_path.to_string_lossy().to_string();
         self.databases
             .write()
             .await
-            .insert(params.path.clone(), Arc::new(db));
+            .insert(path_str.clone(), Arc::new(db));
 
-        Ok(format!("Database created at: {}", params.path))
+        Ok(format!("Database created at: {}", path_str))
     }
 
     async fn tool_insert(&self, args: &Value) -> Result<String> {
@@ -461,27 +528,39 @@ impl McpHandler {
     async fn tool_backup(&self, args: &Value) -> Result<String> {
         let params: BackupParams = serde_json::from_value(args.clone())?;
 
-        std::fs::copy(&params.db_path, &params.backup_path).context("Failed to backup database")?;
+        // Validate both paths to prevent directory traversal (CWE-22)
+        let validated_db_path = self.validate_path(&params.db_path)?;
+        let validated_backup_path = self.validate_path(&params.backup_path)?;
 
-        Ok(format!("Backed up to: {}", params.backup_path))
+        std::fs::copy(&validated_db_path, &validated_backup_path)
+            .context("Failed to backup database")?;
+
+        Ok(format!(
+            "Backed up to: {}",
+            validated_backup_path.display()
+        ))
     }
 
     async fn get_or_open_db(&self, path: &str) -> Result<Arc<VectorDB>> {
+        // Validate path to prevent directory traversal (CWE-22)
+        let validated_path = self.validate_path(path)?;
+        let path_str = validated_path.to_string_lossy().to_string();
+
         let databases = self.databases.read().await;
-        if let Some(db) = databases.get(path) {
+        if let Some(db) = databases.get(&path_str) {
             return Ok(db.clone());
         }
         drop(databases);
 
         // Open new database
         let mut db_options = self.config.to_db_options();
-        db_options.storage_path = path.to_string();
+        db_options.storage_path = path_str.clone();
 
         let db = Arc::new(VectorDB::new(db_options)?);
         self.databases
             .write()
             .await
-            .insert(path.to_string(), db.clone());
+            .insert(path_str, db.clone());
 
         Ok(db)
     }
@@ -732,5 +811,129 @@ impl McpHandler {
             "latency_ms": elapsed.as_secs_f64() * 1000.0
         })
         .to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    fn handler_with_data_dir(data_dir: &Path) -> McpHandler {
+        let mut config = Config::default();
+        config.mcp.data_dir = data_dir.to_string_lossy().to_string();
+        McpHandler::new(config)
+    }
+
+    #[test]
+    fn test_validate_path_allows_relative_within_data_dir() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+
+        // Create a file to validate against
+        std::fs::write(dir.path().join("test.db"), b"test").unwrap();
+
+        let result = handler.validate_path("test.db");
+        assert!(result.is_ok(), "Should allow relative path within data dir");
+        assert!(result.unwrap().starts_with(dir.path()));
+    }
+
+    #[test]
+    fn test_validate_path_blocks_absolute_outside_data_dir() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+
+        let result = handler.validate_path("/etc/passwd");
+        assert!(result.is_err(), "Should block /etc/passwd");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("outside the allowed data directory"),
+            "Error should mention path confinement: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_validate_path_blocks_dot_dot_traversal() {
+        let dir = tempdir().unwrap();
+        // Create a subdir so ../.. resolves to something real
+        let subdir = dir.path().join("sub");
+        std::fs::create_dir_all(&subdir).unwrap();
+        let handler = handler_with_data_dir(&subdir);
+
+        let result = handler.validate_path("../../../etc/passwd");
+        assert!(
+            result.is_err(),
+            "Should block ../ traversal: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_validate_path_blocks_dot_dot_in_middle() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+
+        // Create the inner directory
+        std::fs::create_dir_all(dir.path().join("a")).unwrap();
+
+        let result = handler.validate_path("a/../../etc/passwd");
+        assert!(
+            result.is_err(),
+            "Should block ../  in the middle of path"
+        );
+    }
+
+    #[test]
+    fn test_validate_path_allows_subdirectory_within_data_dir() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+
+        // Create subdirectory
+        std::fs::create_dir_all(dir.path().join("backups")).unwrap();
+
+        let result = handler.validate_path("backups/mydb.bak");
+        assert!(
+            result.is_ok(),
+            "Should allow path in subdirectory: {:?}",
+            result
+        );
+        assert!(result.unwrap().starts_with(dir.path()));
+    }
+
+    #[test]
+    fn test_validate_path_allows_new_file_in_data_dir() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+
+        let result = handler.validate_path("new_database.db");
+        assert!(
+            result.is_ok(),
+            "Should allow new file in data dir: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_validate_path_blocks_absolute_path_to_etc() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+
+        // Test all 3 POCs from the issue
+        for path in &["/etc/passwd", "/etc/shadow", "/etc/hosts"] {
+            let result = handler.validate_path(path);
+            assert!(result.is_err(), "Should block {}", path);
+        }
+    }
+
+    #[test]
+    fn test_validate_path_blocks_home_ssh_keys() {
+        let dir = tempdir().unwrap();
+        let handler = handler_with_data_dir(dir.path());
+
+        let result = handler.validate_path("~/.ssh/id_rsa");
+        // This is a relative path so it won't expand ~, but test the principle
+        let result2 = handler.validate_path("/root/.ssh/id_rsa");
+        assert!(result2.is_err(), "Should block /root/.ssh/id_rsa");
     }
 }

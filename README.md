@@ -31,11 +31,12 @@ Most vector databases are static — they store embeddings and search them. That
 | 📈 **Scales horizontally** | 💰 Paid tiers | ✅ Add nodes freely, no per-vector fees |
 | 🌿 **Git-like branching** | ❌ | ✅ Branch your data like code — only changes are copied |
 | ⚡ **Sublinear Solvers** | ❌ | ✅ O(log n) sparse linear systems, PageRank, spectral methods |
+| 🔬 **Proof-Gated Graph Transformers** | ❌ | ✅ 8 verified modules: physics, bio, manifold, temporal, economic |
 
-**One package. Everything included:** vector search, graph queries, GNN learning, distributed clustering, local LLMs, 46 attention mechanisms, cognitive containers ([RVF](./crates/rvf/README.md) — self-booting `.rvf` files with eBPF, witness chains, and COW branching), and WASM support.
+**One package. Everything included:** vector search, graph queries, GNN learning, [proof-gated graph transformers](./crates/ruvector-graph-transformer) (8 verified modules — physics, biological, manifold, temporal, economic), distributed clustering, local LLMs, 46 attention mechanisms, cognitive containers ([RVF](./crates/rvf/README.md) — self-booting `.rvf` files with eBPF, witness chains, and COW branching), and WASM support.
 
 <details>
-<summary>📋 See Full Capabilities (51 features)</summary>
+<summary>📋 See Full Capabilities (53 features)</summary>
 
 **Core Vector Database**
 | # | Capability | What It Does |
@@ -70,6 +71,8 @@ Most vector databases are static — they store embeddings and search them. That
 | 20 | **Sona Learning in SQL** | Micro-LoRA trajectory learning with EWC++ forgetting prevention |
 | 21 | **Domain Expansion** | Cross-domain transfer learning with contextual bandits |
 | 22 | **Extended Attention** | O(n) linear, MoE, hyperbolic, sliding window attention in SQL |
+| 52 | **Proof-Gated Graph Transformers** | 8 verified modules: every graph mutation requires a formal proof |
+| 53 | **Verified Training** | Training with certificates, delta-apply rollback, fail-closed invariants |
 
 **Cognitive Containers ([RVF](./crates/rvf/README.md))**
 | # | Capability | What It Does |
@@ -479,6 +482,8 @@ cargo add ruvector-raft ruvector-cluster ruvector-replication
 | **Adaptive Routing** | Learn optimal routing strategies | Minimize latency, maximize accuracy |
 | **SONA** | Two-tier LoRA + EWC++ + ReasoningBank | Runtime learning without retraining |
 | **Local Embeddings** | 8+ ONNX models built-in | No external API needed |
+| **[Verified Proofs](./crates/ruvector-verified)** | 82-byte proof attestations per vector op | Structural trust, not just assertions |
+| **[Graph Transformers](./crates/ruvector-graph-transformer)** | 8 proof-gated modules: physics, bio, manifold, temporal, economic | Every graph mutation is mathematically verified |
 
 ### Specialized Processing
 
@@ -1150,6 +1155,7 @@ await dag.execute();
 | [ADR-013](./docs/adr/ADR-013-huggingface-publishing.md) | **New** | HuggingFace publishing |
 | [ADR-030](./docs/adr/ADR-030-rvf-cognitive-container.md) | **Accepted** | RVF cognitive container architecture |
 | [ADR-031](./docs/adr/ADR-031-rvcow-branching-and-real-cognitive-containers.md) | **Accepted** | RVCOW branching & real containers |
+| [ADR-045](./docs/adr/ADR-045-lean-agentic-integration.md) | **Accepted** | Lean-agentic formal verification integration |
 
 </details>
 
@@ -1482,6 +1488,54 @@ let syndrome = gate.assess_coherence(&quantum_state)?;
 
 **RVF Features:** Single-file cognitive containers that boot as Linux microservices, COW branching at cluster granularity, eBPF acceleration, witness chains, post-quantum signatures, 24 segment types. [Full README](./crates/rvf/README.md)
 
+### Formal Verification
+
+| Crate | Description | crates.io |
+|-------|-------------|-----------|
+| [ruvector-verified](./crates/ruvector-verified) | Proof-carrying vector operations with lean-agentic dependent types (~500ns proofs) | [![crates.io](https://img.shields.io/crates/v/ruvector-verified.svg)](https://crates.io/crates/ruvector-verified) |
+| [ruvector-verified-wasm](./crates/ruvector-verified-wasm) | WASM bindings for browser/edge formal verification | [![crates.io](https://img.shields.io/crates/v/ruvector-verified-wasm.svg)](https://crates.io/crates/ruvector-verified-wasm) |
+
+**Verification Features:** 82-byte proof attestations, 3-tier gated proof routing (Reflex <10ns / Standard <1us / Deep <100us), FastTermArena with O(1) dedup, batch dimension verification (~11ns/vector), type-safe pipeline composition. [Full README](./crates/ruvector-verified/README.md)
+
+<details>
+<summary>Formal Verification Details</summary>
+
+**How it works:** Every vector operation produces a machine-checked proof term using lean-agentic dependent types. Proofs are constructed at compile-time semantics but execute at runtime with sub-microsecond overhead, then serialized into 82-byte attestations that can be embedded in RVF witness chains.
+
+| Operation | Latency | Description |
+|-----------|---------|-------------|
+| `ProofEnvironment::new()` | ~470ns | Initialize proof context with type declarations |
+| `prove_dim_eq(a, b)` | ~496ns | Dimension equality proof with FxHash caching |
+| `verify_batch_dimensions()` | ~11ns/vec | Batch verification for N vectors |
+| `compose_chain()` | ~1.2us | Type-safe pipeline composition |
+| `create_attestation()` | ~180ns | 82-byte formal proof witness |
+| `FastTermArena::intern()` | ~1.6ns hit | O(1) dedup with 4-wide linear probe |
+| `gated::route_proof()` | <10ns | 3-tier routing: Reflex / Standard / Deep |
+
+**10 Exotic Application Domains** ([examples/verified-applications](./examples/verified-applications)):
+
+1. **Autonomous Weapons Filter** — certified targeting pipeline blocks tampered sensors
+2. **Medical Diagnostics** — proof-carrying ECG analysis with patient-keyed attestations
+3. **Financial Order Routing** — verified trade execution with proof-hash audit trail
+4. **Multi-Agent Contracts** — dimension + metric + depth contracts enforced by proof
+5. **Distributed Sensor Swarm** — coherence verification across heterogeneous nodes
+6. **Quantization Proof** — certify quantization error within formal tolerance bounds
+7. **Verifiable Synthetic Memory** — AGI memory with per-embedding proof attestations
+8. **Cryptographic Vector Signatures** — model-keyed signatures with contract matching
+9. **Simulation Integrity** — proof receipt per step for reproducible physics
+10. **Legal Forensics** — court-admissible replay bundles with structural invariants
+
+```rust
+use ruvector_verified::{ProofEnvironment, vector_types, proof_store};
+
+let mut env = ProofEnvironment::new();
+let proof = vector_types::prove_dim_eq(&mut env, 384, 384).unwrap();
+let att = proof_store::create_attestation(&env, proof);
+assert_eq!(att.to_bytes().len(), 82); // 82-byte formal witness
+```
+
+</details>
+
 **Self-booting example** — the `claude_code_appliance` builds a complete AI dev environment as one file:
 
 ```bash
@@ -1489,6 +1543,70 @@ cd examples/rvf && cargo run --example claude_code_appliance
 ```
 
 Final file: **5.1 MB single `.rvf`** — boots Linux, serves queries, runs Claude Code. One file. Boots on QEMU/Firecracker. Runs SSH. Serves vectors. Installs Claude Code. Proves every step with a cryptographic witness chain.
+
+### Graph Transformer
+
+[![Crates.io](https://img.shields.io/crates/v/ruvector-graph-transformer.svg)](https://crates.io/crates/ruvector-graph-transformer)
+
+| Crate | Description | Registry |
+|-------|-------------|----------|
+| [ruvector-graph-transformer](./crates/ruvector-graph-transformer) | Unified graph transformer with proof-gated mutation substrate (8 modules, 186 tests) | [![crates.io](https://img.shields.io/crates/v/ruvector-graph-transformer.svg)](https://crates.io/crates/ruvector-graph-transformer) |
+| [ruvector-graph-transformer-wasm](./crates/ruvector-graph-transformer-wasm) | WASM bindings for browser-side graph transformers | [![crates.io](https://img.shields.io/crates/v/ruvector-graph-transformer-wasm.svg)](https://crates.io/crates/ruvector-graph-transformer-wasm) |
+| [ruvector-graph-transformer-node](./crates/ruvector-graph-transformer-node) | Node.js NAPI-RS bindings (22+ methods, 20 tests) | [![npm](https://img.shields.io/npm/v/@ruvector/graph-transformer.svg)](https://www.npmjs.com/package/@ruvector/graph-transformer) |
+
+**What it does:** Every time you modify a graph — adding a node, changing an edge weight, updating a vector — the graph transformer requires a formal proof that the operation is valid *before* it executes. Think of it like a type system for graph mutations: you can't accidentally corrupt your data because the system mathematically verifies every change.
+
+On top of that proof layer, 8 specialized modules handle different aspects of graph intelligence:
+
+| Module | What It Does (Plain English) | Feature Flag |
+|--------|------------------------------|--------------|
+| **Proof-Gated Mutation** | Locks graph data behind mathematical proofs — no proof, no access | always on |
+| **Sublinear Attention** | Finds the most important nodes without checking every single one — scales to millions | `sublinear` |
+| **Physics-Informed** | Applies physics equations (conservation of energy, symmetry) to message passing | `physics` |
+| **Biological** | Models neurons that only fire when excited enough — naturally sparse, energy-efficient | `biological` |
+| **Self-Organizing** | Graphs that grow and reorganize themselves like biological development | `self-organizing` |
+| **Verified Training** | Training with a receipt — if a gradient step would break an invariant, it's automatically rolled back | `verified-training` |
+| **Manifold** | Operates in curved spaces (like the surface of a sphere) instead of just flat Euclidean space | `manifold` |
+| **Temporal-Causal** | Enforces that information flows forward in time — no peeking at the future | `temporal` |
+| **Economic** | Uses game theory to allocate attention fairly — Nash equilibrium for node importance | `economic` |
+
+```bash
+# Rust
+cargo add ruvector-graph-transformer --features full
+
+# Node.js
+npm install @ruvector/graph-transformer
+```
+
+```rust
+use ruvector_graph_transformer::sublinear_attention::SublinearGraphAttention;
+use ruvector_graph_transformer::config::SublinearConfig;
+
+let attn = SublinearGraphAttention::new(128, SublinearConfig::default());
+let outputs = attn.lsh_attention(&features).unwrap(); // O(n log n)
+```
+
+```javascript
+const { GraphTransformer } = require('@ruvector/graph-transformer');
+const gt = new GraphTransformer();
+
+// Every operation produces a proof receipt
+const proof = gt.proveDimension(128, 128);
+const attestation = gt.createAttestation(proof.proof_id); // 82 bytes
+```
+
+<details>
+<summary>Graph Transformer Architecture Details</summary>
+
+**Proof-gated mutation** means `state_n -> proof(invariant) -> mutation -> state_n+1`. The `ProofGate<T>` type wraps any value so you literally cannot access the inner data without first producing a valid proof. This is enforced at the type level in Rust and at runtime in WASM/Node.js.
+
+**Sublinear attention** uses three strategies: (1) locality-sensitive hashing groups similar nodes into buckets, (2) personalized PageRank samples the most relevant neighbors via random walks, (3) spectral sparsification prunes edges that don't contribute to graph connectivity. All three reduce O(n^2) full attention to O(n log n).
+
+**Verified training** uses a delta-apply architecture: gradients go to a scratch buffer first, invariants are checked against the proposed weights (loss stability, weight norms, Lipschitz bounds, energy gates), and only if all checks pass are the weights committed. If any check fails and `fail_closed = true`, the step is rejected and the old weights are preserved. Every successful step produces a `TrainingCertificate` with BLAKE3 hashes of weights, config, and dataset manifest.
+
+**10 ADRs** document every design decision: [ADR-046](./docs/adr/ADR-046-graph-transformer-architecture.md) through [ADR-055](./docs/adr/ADR-055-manifold-graph-layers.md).
+
+</details>
 
 ### Personal AI Memory (OSpipe)
 
@@ -3974,6 +4092,7 @@ console.log(`Similarity: ${cosineSimilarity(vecA, vecB)}`);  // 1.0
 | `@ruvector/exotic-wasm` | <150KB | NAO, Morphogenetic, Time Crystal |
 | `@ruvector/nervous-system-wasm` | <100KB | BTSP, HDC (10K-bit), WTA, Global Workspace |
 | `@ruvector/attention-unified-wasm` | <200KB | 18+ attention mechanisms, unified API |
+| `@ruvnet/ruvector-verified-wasm` | <80KB | Formal proof verification in browser/edge |
 
 **Common Patterns:**
 
@@ -4502,6 +4621,8 @@ curl -X POST http://localhost:8080/search \
 | [prime-radiant](./examples/prime-radiant) | Prime-Radiant coherence engine examples and usage demos | Rust |
 | [benchmarks](./examples/benchmarks) | Comprehensive benchmarks for temporal reasoning and vector operations | Rust |
 | [vwm-viewer](./examples/vwm-viewer) | Visual vector world model viewer (HTML Canvas) | HTML |
+| [**verified-applications**](./examples/verified-applications) | **10 exotic domains: weapons filter, medical diagnostics, financial routing, agent contracts, sensor swarm, quantization proof, AGI memory, vector signatures, simulation integrity, legal forensics** | Rust |
+| [rvf-kernel-optimized](./examples/rvf-kernel-optimized) | Verified + hyper-optimized Linux kernel RVF with proof-carrying ingest | Rust |
 
 </details>
 

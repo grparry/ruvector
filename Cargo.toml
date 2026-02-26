@@ -104,6 +104,13 @@ members = [
     "crates/ruvector-profiler",
     "crates/ruvector-attn-mincut",
     "crates/ruvector-cognitive-container",
+    "crates/ruvector-verified",
+    "crates/ruvector-verified-wasm",
+    "crates/ruvector-graph-transformer",
+    "crates/ruvector-graph-transformer-wasm",
+    "crates/ruvector-graph-transformer-node",
+    "examples/rvf-kernel-optimized",
+    "examples/verified-applications",
 ]
 resolver = "2"
 
@@ -170,6 +177,9 @@ console = "0.15"
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.5"
 mockall = "0.13"
+
+# Formal verification
+lean-agentic = "=0.1.0"
 
 # Performance
 dashmap = "6.1"
